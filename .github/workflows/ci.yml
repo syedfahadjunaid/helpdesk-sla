@@ -29,7 +29,7 @@ jobs:
       # Testcontainers starts Postgres, RabbitMQ (with STOMP) and Mailpit on the runner's Docker.
       - run: sh mvnw -B verify
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports
           path: services/helpdesk-api/target/surefire-reports
