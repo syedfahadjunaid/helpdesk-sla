@@ -1,0 +1,14 @@
+# Settings for the integration tests (activated by @ActiveProfiles("test") on IntegrationTest).
+helpdesk:
+  scheduling:
+    enabled: false        # tests run the background jobs by hand, at the moment they choose
+  keycloak:
+    client-secret: test-client-secret
+  sla:
+    batch-size: 10        # small batches, so concurrent workers really interleave
+  mail:
+    inbound:
+      enabled: true
+logging:
+  level:
+    "[org.springframework.amqp.rabbit.listener]": WARN

@@ -1,0 +1,6 @@
+# Shell scripts and the Maven wrapper run inside Linux containers: always LF.
+*.sh text eol=lf
+mvnw text eol=lf
+infra/** text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf

@@ -1,0 +1,198 @@
+{
+  "realm": "helpdesk",
+  "displayName": "Helpdesk (local development)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": false,
+  "passwordPolicy": "length(12) and notUsername and notEmail",
+  "roles": {
+    "realm": [
+      {
+        "name": "AGENT",
+        "description": "Works tickets in the queues they belong to"
+      },
+      {
+        "name": "SUPERVISOR",
+        "description": "Assigns anyone's tickets, works any ticket, hears about SLA breaches"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Manages SLA policies and queue membership"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "helpdesk-web",
+      "name": "Helpdesk web app (the API is its own backend-for-frontend; confidential client, code + PKCE)",
+      "description": "The browser only gets an HttpOnly session cookie; tokens stay in the server-side session. The secret comes from KEYCLOAK_CLIENT_SECRET in .env when the realm is imported.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5580/login/oauth2/code/keycloak"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5580/"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles as 'roles'",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "helpdesk-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "helpdesk-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "helpdesk-cli",
+      "name": "LOCAL DEV ONLY - password grant for the demo scripts. Never enable in production.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocolMappers": [
+        {
+          "name": "realm roles as 'roles'",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "helpdesk-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "helpdesk-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "email": "ada@helpdesk.test",
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN",
+        "SUPERVISOR",
+        "AGENT"
+      ]
+    },
+    {
+      "username": "sam",
+      "enabled": true,
+      "email": "sam@helpdesk.test",
+      "emailVerified": true,
+      "firstName": "Sam",
+      "lastName": "Supervisor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "SUPERVISOR",
+        "AGENT"
+      ]
+    },
+    {
+      "username": "ann",
+      "enabled": true,
+      "email": "ann@helpdesk.test",
+      "emailVerified": true,
+      "firstName": "Ann",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "AGENT"
+      ]
+    },
+    {
+      "username": "ben",
+      "enabled": true,
+      "email": "ben@helpdesk.test",
+      "emailVerified": true,
+      "firstName": "Ben",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "AGENT"
+      ]
+    }
+  ]
+}

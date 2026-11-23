@@ -1,0 +1,140 @@
+spring:
+  application:
+    name: helpdesk-api
+  config:
+    # Lets you run the app from your IDE using the same .env file Docker Compose uses.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../../.env[.properties]
+  threads:
+    virtual:
+      enabled: true          # Java 21+ virtual threads: cheap blocking I/O per request
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:${POSTGRES_HOST_PORT:45432}/helpdesk}
+    # The application's own login: data access only, no DDL (see infra/postgres/init).
+    username: ${DB_APP_USERNAME:helpdesk_app}
+    password: ${DB_APP_PASSWORD:}
+  flyway:
+    # Migrations run as the schema owner, a different login from the one the app uses.
+    user: ${DB_OWNER_USERNAME:helpdesk_owner}
+    password: ${DB_OWNER_PASSWORD:}
+    schemas: helpdesk
+    default-schema: helpdesk
+    placeholders:
+      appRole: ${DB_APP_USERNAME:helpdesk_app}
+  jpa:
+    open-in-view: false      # no lazy-loading surprises in controllers
+    hibernate:
+      ddl-auto: validate     # Flyway owns the schema; Hibernate only checks it matches
+    properties:
+      hibernate:
+        default_schema: helpdesk
+  session:
+    timeout: 30m             # like Keycloak's SSO idle timeout
+    jdbc:
+      initialize-schema: never   # the tables come from Flyway (V1__schema.sql)
+      table-name: helpdesk.spring_session
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:${RABBITMQ_HOST_PORT:45672}}
+    username: ${RABBITMQ_USERNAME:helpdesk}
+    password: ${RABBITMQ_PASSWORD:}
+    # The outbox relay waits for the broker to confirm each message before marking it sent.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true        # an unroutable message comes back instead of vanishing
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false   # after the retries below, a message goes to its dead-letter queue
+        retry:
+          enabled: true
+          max-attempts: 4
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 10s
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:${MAILPIT_SMTP_HOST_PORT:41025}}
+    properties:
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
+  mvc:
+    problemdetails:
+      enabled: true          # RFC 9457 error bodies
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+
+server:
+  port: 8080
+  # Redirects such as "go to / after sign-in" stay relative, so they work behind nginx.
+  tomcat:
+    use-relative-redirects: true
+  servlet:
+    session:
+      cookie:
+        # Not the default "SESSION": cookies on localhost are shared across ports, so other
+        # local apps could collide with a generic name.
+        name: HELPDESK_SESSION
+        http-only: true      # JavaScript can't read it, so an XSS bug can't steal the session
+        # Lax, not Strict: the cookie must come along when Keycloak redirects the browser back.
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}   # set true wherever the app is served over HTTPS
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  server:
+    port: 8081               # health/metrics on a separate port that is never published
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    # The STOMP relay logs every broker heartbeat at INFO
+    "[org.springframework.messaging.simp.stomp.StompBrokerRelayMessageHandler]": WARN
+
+helpdesk:
+  instance-name: ${HELPDESK_INSTANCE:local}
+  public-url: ${PUBLIC_URL:http://localhost:5580}
+  keycloak:
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8680/realms/helpdesk}
+    backchannel-uri: ${KEYCLOAK_BACKCHANNEL_URI:http://localhost:8680/realms/helpdesk}
+    client-id: helpdesk-web
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+    # Bearer tokens (scripts, integrations) must be issued for this audience.
+    api-audience: helpdesk-api
+  stomp-relay:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_STOMP_PORT:61613}
+    login: ${RABBITMQ_USERNAME:helpdesk}
+    passcode: ${RABBITMQ_PASSWORD:}
+  mail:
+    # The domain used in Message-IDs we generate, e.g. <hd-1001.3f2a...@helpdesk.test>
+    domain: helpdesk.test
+    inbound:
+      enabled: ${INBOUND_MAIL_ENABLED:true}
+      mailpit-url: ${MAILPIT_API_URL:http://localhost:48025}
+      poll-interval: 3s
+      max-size-bytes: 10485760   # 10 MB; bigger emails are ignored
+  sla:
+    worker-interval: 5s
+    batch-size: 50
+  outbox:
+    relay-interval: 500ms
+    batch-size: 100
+  tickets:
+    auto-close-after: 72h
+  scheduling:
+    enabled: true            # tests switch the background jobs off and run them by hand
